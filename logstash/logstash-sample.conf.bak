@@ -1,0 +1,601 @@
+# Sample Logstash configuration for creating a simple
+# Beats -> Logstash -> Elasticsearch pipeline.
+
+
+input {
+    jdbc {
+        jdbc_driver_library => "D:/elk/logstash-7.8.1/config/mysql-connector-java-8.0.27.jar" 
+        jdbc_driver_class => "com.mysql.jdbc.Driver"
+        jdbc_connection_string => "jdbc:mysql://10.31.10.23:3306/prod_pulmuone?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowMultiQueries=true"
+        jdbc_user => "prod_shop"
+        jdbc_password => "vnfandnjs##77"
+        statement => "
+			WITH CLAIM_TEMP AS (																				
+	  SELECT																				
+	    iod.OD_ORDER_ID																				
+	      ,																				
+	    iood.OD_ORDER_DETL_ID																				
+	      ,																				
+	    (																				
+	      SELECT																				
+	        iocd.CLAIM_STATUS_CD																				
+	      FROM																				
+	        OD_CLAIM ioc																				
+	          INNER JOIN OD_CLAIM_DETL iocd ON																				
+	            ioc.OD_CLAIM_ID = iocd.OD_CLAIM_ID																				
+	      WHERE																				
+	          ioc.OD_ORDER_ID = iod.OD_ORDER_ID																				
+	        AND iocd.OD_ORDER_DETL_ID = iood.OD_ORDER_DETL_ID																				
+	      ORDER BY																				
+	        ioc.CREATE_DT DESC																				
+	      LIMIT 1) AS CLAIM_STATUS_CD																				
+	  FROM																				
+	    OD_ORDER iod																				
+	      INNER JOIN OD_ORDER_DETL iood ON																				
+	        iod.OD_ORDER_ID = iood.OD_ORDER_ID																				
+	)																				
+	SELECT																				
+	  OOD.OD_ORDER_ID AS OD_ORDER_ID /* 주문 PK */																				
+	    ,																				
+	  OOD.OD_ORDER_DETL_ID AS OD_ORDER_DETL_ID /* 주문상세 PK */																				
+	    ,																				
+	  OOD.ODID AS ODID /* 주문번호 */																				
+	    ,																				
+	  OOD.OD_ORDER_DETL_SEQ AS OD_ORDER_DETL_SEQ  /* 주문상세 순번(라인번호) 주문번호에 대한 순번 */																				
+	    ,																				
+	  IFNULL((SELECT GDM.DIC_MST_NM																				
+	          FROM GB_DIC_MST GDM																				
+	          WHERE GDM.GB_DIC_MST_ID = SCC14.GB_DIC_MST_ID), '') AS DIC_MST_NM /* 에이전트타 */																				
+	    ,																				
+	  IFNULL(OS.SELLERS_NM, '') AS SELLERS_NM /* 판매처명 */																				
+	    ,																				
+	  IFNULL(OOD.OUTMALL_ID, '') AS OUTMALL_ID /* 외부몰주문번호(이지어드민 ORDER_ID) */																				
+	    ,																				
+	  IFNULL(OOD.COLLECTION_MALL_ID, '') AS COLLECTION_MALL_ID /* 수집몰주문번호 (이지어드민 PACK, SEQ 조합) */																				
+	    ,																				
+	  IFNULL(OOD.COLLECTION_MALL_DETAIL_ID, '') AS COLLECTION_MALL_DETAIL_ID /* 수집몰 주문상세번호 */																				
+	    ,																				
+	  IFNULL(UC.COMP_NM, '') AS COMP_NM /* 공급업체명 */																				
+	   																									
+	FROM																				
+	  (																				
+	    SELECT																				
+	      OOD.OD_ORDER_ID																				
+	        ,																				
+	      OOD.ODID																				
+	        ,																				
+	      OCD.OD_CLAIM_ID																				
+	        ,																				
+	      OOD.OD_ORDER_DETL_ID																				
+	        ,																				
+	      OD.OM_SELLERS_ID																				
+	        ,																				
+	      OD.COLLECTION_MALL_ID																				
+	        ,																				
+	      OD.OUTMALL_ID																				
+	        ,																				
+	      OD.UR_GROUP_NM																				
+	        ,																				
+	      OD.UR_USER_ID																				
+	        ,																				
+	      UU.LOGIN_ID																				
+	        ,																				
+	      OD.UR_EMPLOYEE_CD																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OD.BUYER_NM) , 'lssCSGhjyCBS!@34') AS CHAR) AS BUYER_NM																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OD.BUYER_HP) , 'lssCSGhjyCBS!@34') AS CHAR) AS BUYER_HP																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OD.BUYER_TEL) , 'lssCSGhjyCBS!@34') AS CHAR) AS BUYER_TEL																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OD.BUYER_MAIL), 'lssCSGhjyCBS!@34') AS CHAR) AS BUYER_MAIL																				
+	        ,																				
+	      OSZ.DELIVERY_TYPE																				
+	        ,																				
+	      OSZ.SHIPPING_TYPE																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OSZ.RECV_NM) , 'lssCSGhjyCBS!@34') AS CHAR) AS RECV_NM																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OSZ.RECV_HP) , 'lssCSGhjyCBS!@34') AS CHAR) AS RECV_HP																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OSZ.RECV_TEL) , 'lssCSGhjyCBS!@34') AS CHAR) AS RECV_TEL																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OSZ.RECV_MAIL) , 'lssCSGhjyCBS!@34') AS CHAR) AS RECV_MAIL																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OSZ.RECV_ZIP_CD) , 'lssCSGhjyCBS!@34') AS CHAR) AS RECV_ZIP_CD																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OSZ.RECV_ADDR1) , 'lssCSGhjyCBS!@34') AS CHAR) AS RECV_ADDR1																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OSZ.RECV_ADDR2) , 'lssCSGhjyCBS!@34') AS CHAR) AS RECV_ADDR2																				
+	        ,																				
+	      OSZ.RECV_BLD_NO																				
+	        ,																				
+	      OSZ.DELIVERY_MSG																				
+	        ,																				
+	      OSZ.DOOR_MSG_CD																				
+	        ,																				
+	      CAST(AES_DECRYPT(UNHEX(OSZ.DOOR_MSG) , 'lssCSGhjyCBS!@34') AS CHAR) AS DOOR_MSG																				
+	        ,																				
+	      OP.PAY_TP																				
+	        ,																				
+	      OOD.ORDER_CNT																				
+	        ,																				
+	      OOD.CANCEL_CNT																				
+	        ,																				
+	      OOD.ORDER_CNT - OOD.CANCEL_CNT AS CANCEL_ABLE_CNT																				
+	        ,																				
+	      OOD.TOT_SALE_PRICE																				
+	        ,																				
+	      OOD.OD_SHIPPING_PRICE_ID																				
+	        ,																				
+	      CASE																				
+	        WHEN IFNULL(OODC.DISCOUNT_PRICE, 0) > 0 THEN 0																				
+	        WHEN IFNULL(OODC.DISCOUNT_PRICE, 0) = 0 THEN IFNULL(OOD.DIRECT_PRICE, 0)																				
+	        END AS DIRECT_PRICE																				
+	        ,																				
+	      IFNULL(OODC.DISCOUNT_PRICE, 0) AS DISCOUNT_EMPLOYEE_PRICE																				
+	        ,																				
+	      (OOD.CART_COUPON_PRICE + OOD.GOODS_COUPON_PRICE) AS COUPON_PRICE																				
+	        ,																				
+	      OOD.PAID_PRICE																				
+	        ,																				
+	      ODS.STATUS_CD AS ODS_STATUS_CD																				
+	        ,																				
+	      OCS.STATUS_CD AS OCS_STATUS_CD																				
+	        ,																				
+	      OODT.IC_DT																				
+	        ,																				
+	      OODT.CREATE_DT																				
+	        ,																				
+	      UW.WAREHOUSE_GRP_CD																				
+	        ,																				
+	      OOD.OD_ORDER_DETL_SEQ																				
+	        ,																				
+	      OOD.STORAGE_TYPE_CD																				
+	        ,																				
+	      OOD.GOODS_TP_CD																				
+	        ,																				
+	      OOD.ORDER_STATUS_DELI_TP																				
+	        ,																				
+	      OOD.SALE_TP_CD																				
+	        ,																				
+	      OOD.IL_CTGRY_STD_ID																				
+	        ,																				
+	      OOD.IL_CTGRY_DISPLAY_ID																				
+	        ,																				
+	      OOD.IL_CTGRY_MALL_ID																				
+	        ,																				
+	      OOD.IL_ITEM_CD																				
+	        ,																				
+	      OOD.ITEM_BARCODE																				
+	        ,																				
+	      OOD.IL_GOODS_ID																				
+	        ,																				
+	      OOD.GOODS_NM																				
+	        ,																				
+	      OOD.GOODS_DELIVERY_TYPE																				
+	        ,																				
+	      OCD.CLAIM_CNT																				
+	        ,																				
+	      OOD.TAX_YN																				
+	        ,																				
+	      OOD.GOODS_DISCOUNT_TP																				
+	        ,																				
+	      OOD.STANDARD_PRICE																				
+	        ,																				
+	      OOD.RECOMMENDED_PRICE																				
+	        ,																				
+	      OOD.SALE_PRICE																				
+	        ,																				
+	      OOD.ORDER_STATUS_CD																				
+																					
+	        ,																				
+	      OOC.CLAIM_STATUS_CD																				
+																					
+	        ,																				
+	      OCD.REFUND_STATUS_CD																				
+	        ,																				
+	      OC.PS_CLAIM_MALL_ID																				
+	        ,																				
+	      OC.CLAIM_REASON_MSG																				
+	        ,																				
+	      OOD.DR_ID																				
+	        ,																				
+	      OOD.DR_DT																				
+	        ,																				
+	      OOD.DI_ID																				
+	        ,																				
+	      OOD.DI_DT																				
+	        ,																				
+	      OOD.DC_ID																				
+	        ,																				
+	      OOD.DC_DT																				
+	        ,																				
+	      OOD.BF_ID																				
+	        ,																				
+	      OOD.BF_DT																				
+	        ,																				
+	      OOD.CA_ID																				
+	        ,																				
+	      OOD.CA_DT																				
+	        ,																				
+	      OOD.CC_ID																				
+	        ,																				
+	      OOD.CC_DT																				
+	        ,																				
+	      OOD.RA_ID																				
+	        ,																				
+	      OOD.RA_DT																				
+	        ,																				
+	      OOD.RI_ID																				
+	        ,																				
+	      OOD.RI_DT																				
+	        ,																				
+	      OOD.RF_ID																				
+	        ,																				
+	      OOD.RF_DT																				
+	        ,																				
+	      OOD.RC_ID																				
+	        ,																				
+	      OOD.RC_DT																				
+	        ,																				
+	      OOD.EC_ID																				
+	        ,																				
+	      OOD.EC_DT																				
+	        ,																				
+	      OOD.CS_ID																				
+	        ,																				
+	      OOD.CS_DT																				
+	        ,																				
+	      OOD.FA_ID																				
+	        ,																				
+	      OOD.FA_DT																				
+	        ,																				
+	      OOD.FC_ID																				
+	        ,																				
+	      OOD.FC_DT																				
+	        ,																				
+	      OOD.CR_ID																				
+	        ,																				
+	      OOD.CR_DT																				
+	        ,																				
+	      OOD.CE_ID																				
+	        ,																				
+	      OOD.CE_DT																				
+	        ,																				
+	      OOD.ORDER_IF_ID																				
+	        ,																				
+	      OOD.ORDER_IF_DT																				
+	        ,																				
+	      OOD.SHIPPING_ID																				
+	        ,																				
+	      OOD.SHIPPING_DT																				
+	        ,																				
+	      OOD.DELIVERY_ID																				
+	        ,																				
+	      OOD.DELIVERY_DT																				
+	        ,																				
+	      OD.AGENT_TYPE_CD																				
+	        ,																				
+	      OD.BUYER_TYPE_CD																				
+	        ,																				
+	      OOD.COLLECTION_MALL_DETAIL_ID																				
+	        ,																				
+	      OOD.OUTMALL_DETAIL_ID																				
+	        ,																				
+	      UW.WAREHOUSE_NM AS UR_WAREHOUSE_NM																				
+	        ,																				
+	      UW.PS_SHIPPING_PATTERN_ID																				
+	        ,																				
+	      OOD.UR_SUPPLIER_ID																				
+	        ,																				
+	      ROW_NUMBER() OVER(PARTITION BY TRIM(CONCAT(OD.OD_ORDER_ID, OOD.OD_SHIPPING_PRICE_ID))																				
+	                   ORDER BY																				
+	                     OOD.OD_ORDER_DETL_ID ASC) AS SHIPPING_PRICE_RNK																				
+	      /* CS환불 항목  START */																				
+	        ,																				
+	      IFNULL(PCC1.CLAIM_NM, '') AS L_CLAIM_NAME /* 클레임 사유(대) 사유명 */																				
+	        ,																				
+	      IFNULL(PCC2.CLAIM_NM, '') AS M_CLAIM_NAME /* 클레임 사유(중) 사유명 */																				
+	        ,																				
+	      IFNULL(PCC3.CLAIM_NM, '') AS S_CLAIM_NAME /* 귀책처 사유명 */																				
+	        ,																				
+	      IFNULL(PCC3.TARGET_TP, '') AS TARGET_TP /* 귀책 유형 */																				
+	      /* CS환불 항목 END */																				
+	    FROM																				
+	      OD_ORDER OD																				
+	        INNER JOIN OD_ORDER_DETL OOD ON																				
+	          OOD.OD_ORDER_ID = OD.OD_ORDER_ID																				
+	        INNER JOIN OD_ORDER_DT OODT ON																				
+	          OOD.OD_ORDER_ID = OODT.OD_ORDER_ID																				
+	        INNER JOIN OD_SHIPPING_ZONE OSZ ON																				
+	          OOD.OD_SHIPPING_ZONE_ID = OSZ.OD_SHIPPING_ZONE_ID																				
+	        INNER JOIN UR_WAREHOUSE UW ON																				
+	          OOD.UR_WAREHOUSE_ID = UW.UR_WAREHOUSE_ID																				
+	        INNER JOIN (																				
+	        SELECT																				
+	          OP.OD_ORDER_ID																				
+	            ,																				
+	          MIN(OPM.PAY_TP) AS PAY_TP																				
+	        FROM																				
+	          OD_PAYMENT OP																				
+	            INNER JOIN OD_PAYMENT_MASTER OPM ON																				
+	              OP.OD_PAYMENT_MASTER_ID = OPM.OD_PAYMENT_MASTER_ID																				
+	        GROUP BY																				
+	          OP.OD_ORDER_ID																				
+	      ) OP ON																				
+	          OP.OD_ORDER_ID = OD.OD_ORDER_ID																				
+	        LEFT OUTER JOIN UR_USER UU ON																				
+	          OD.UR_USER_ID = UU.UR_USER_ID																				
+																					
+	        /* 클레임 테이블 START */																				
+	        LEFT OUTER JOIN OD_CLAIM OC ON																				
+	          OOD.OD_ORDER_ID = OC.OD_ORDER_ID																				
+	        LEFT OUTER JOIN OD_CLAIM_DETL OCD ON																				
+	            OC.OD_CLAIM_ID = OCD.OD_CLAIM_ID																				
+	          AND OCD.OD_ORDER_DETL_ID = OOD.OD_ORDER_DETL_ID																				
+	        LEFT OUTER JOIN CLAIM_TEMP OOC ON																				
+	            OC.OD_ORDER_ID = OOC.OD_ORDER_ID																				
+	          AND OOD.OD_ORDER_DETL_ID = OOC.OD_ORDER_DETL_ID																				
+	        LEFT OUTER JOIN PS_CLAIM_BOS PCB ON																				
+	            OCD.PS_CLAIM_BOS_ID = PCB.PS_CLAIM_BOS_ID																				
+	          AND PCB.DEL_YN = 'N'																				
+	          AND PCB.USE_YN = 'Y'																				
+	        LEFT OUTER JOIN PS_CLAIM_CTGRY PCC1 ON																				
+	          PCB.L_CLAIM_CTGRY_ID = PCC1.PS_CLAIM_CTGRY_ID																				
+	        LEFT OUTER JOIN PS_CLAIM_CTGRY PCC2 ON																				
+	          PCB.M_CLAIM_CTGRY_ID = PCC2.PS_CLAIM_CTGRY_ID																				
+	        LEFT OUTER JOIN PS_CLAIM_CTGRY PCC3 ON																				
+	          PCB.S_CLAIM_CTGRY_ID = PCC3.PS_CLAIM_CTGRY_ID																				
+	        /* 클레임 테이블 END */																				
+	        LEFT OUTER JOIN (																				
+	        SELECT																				
+	          OOD.OD_ORDER_ID																				
+	            ,																				
+	          OS.STATUS_CD																				
+	            ,																				
+	          MIN(OS.ORDER_STATUS_SORT) AS ORDER_STATUS_SORT																				
+	        FROM																				
+	          OD_STATUS OS																				
+	            INNER JOIN OD_ORDER_DETL OOD ON																				
+	              OOD.ORDER_STATUS_CD = OS.STATUS_CD																				
+	        WHERE																				
+	            OS.ORDER_STATUS_SORT != '99'																				
+	        GROUP BY																				
+	          OOD.OD_ORDER_ID																				
+	      ) ODS ON																				
+	          OOD.OD_ORDER_ID = ODS.OD_ORDER_ID																				
+	        LEFT OUTER JOIN (																				
+	        SELECT																				
+	          OOD.OD_ORDER_ID																				
+	            ,																				
+	          OS.STATUS_CD																				
+	            ,																				
+	          MIN(OS.CLAIM_STATUS_SORT) AS CLAIM_STATUS_SORT																				
+	        FROM																				
+	          OD_STATUS OS																				
+	            INNER JOIN OD_CLAIM_DETL OCD ON																				
+	              OCD.CLAIM_STATUS_CD = OS.STATUS_CD																				
+	            INNER JOIN OD_ORDER_DETL OOD ON																				
+	              OCD.OD_ORDER_DETL_ID = OOD.OD_ORDER_DETL_ID																				
+	        WHERE																				
+	            OS.CLAIM_STATUS_SORT != '99'																				
+	        GROUP BY																				
+	          OOD.OD_ORDER_ID																				
+	      ) OCS ON																				
+	          OOD.OD_ORDER_ID = OCS.OD_ORDER_ID																				
+	        LEFT OUTER JOIN (																				
+	        SELECT																				
+	          T2.*																				
+	        FROM																				
+	          OD_ORDER_DETL T1																				
+	            INNER JOIN OD_ORDER_DETL_DISCOUNT T2 ON																				
+	                T1.OD_ORDER_ID = T2.OD_ORDER_ID																				
+	              AND T1.OD_ORDER_DETL_ID = T2.OD_ORDER_DETL_ID																				
+	        WHERE																				
+	            T2.DISCOUNT_TP = 'GOODS_DISCOUNT_TP.EMPLOYEE'																				
+	          AND T1.OD_ORDER_DETL_DEPTH_ID != 3																				
+	      ) OODC ON																				
+	          OOD.OD_ORDER_DETL_ID = OODC.OD_ORDER_DETL_ID																				
+	    WHERE																				
+	        1 = 1																				
+	      AND OD.ORDER_YN = 'Y'																				
+	      AND OOD.DI_DT BETWEEN '20211201' AND ('20211231' + INTERVAL 1 DAY - INTERVAL 1 SECOND)																				
+	      AND OOD.UR_WAREHOUSE_ID = 134																				
+	      -- 용인물류 133 / 백암물류 134																				
+	      AND OOD.GOODS_DELIVERY_TYPE IN																				
+	          (																				
+	            SELECT																				
+	              ST_COMN_CODE_ID																				
+	            FROM																				
+	              ST_COMN_CODE																				
+	            WHERE																				
+	                ST_COMN_CODE_MST_CD = 'GOODS_DELIVERY_TYPE'																				
+	              AND USE_YN = 'Y')																				
+	    GROUP BY																				
+	      OD_ORDER_DETL_ID																				
+	  ) OOD																				
+	    LEFT OUTER JOIN OM_SELLERS OS ON																				
+	      OOD.OM_SELLERS_ID = OS.OM_SELLERS_ID																				
+	    LEFT OUTER JOIN UR_USER UU ON																				
+	      OOD.UR_USER_ID = UU.UR_USER_ID																				
+	    LEFT OUTER JOIN OD_TRACKING_NUMBER OTN ON																				
+	      OOD.OD_ORDER_DETL_ID = OTN.OD_ORDER_DETL_ID																				
+	    LEFT OUTER JOIN PS_SHIPPING_COMP PSC ON																				
+	      OTN.PS_SHIPPING_COMP_ID = PSC.PS_SHIPPING_COMP_ID																				
+	    LEFT OUTER JOIN OD_ORDER_DETL_DAILY OODD ON																				
+	        OOD.OD_ORDER_DETL_ID = OODD.OD_ORDER_DETL_ID																				
+	      AND OOD.OD_ORDER_ID = OODD.OD_ORDER_ID																				
+	    LEFT OUTER JOIN IL_ITEM II ON																				
+	      OOD.IL_ITEM_CD = II.IL_ITEM_CD																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC1 ON																				
+	        SCC1.ST_COMN_CODE_ID = OOD.DELIVERY_TYPE																				
+	      AND SCC1.ST_COMN_CODE_MST_CD = 'DELIVERY_TYPE'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC2 ON																				
+	        SCC2.ST_COMN_CODE_ID = OOD.DOOR_MSG_CD																				
+	      AND SCC2.ST_COMN_CODE_MST_CD = 'ACCESS_INFORMATION'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC3 ON																				
+	        SCC3.ST_COMN_CODE_ID = OOD.PAY_TP																				
+	      AND SCC3.ST_COMN_CODE_MST_CD = 'PAY_TP'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC4 ON																				
+	        SCC4.ST_COMN_CODE_ID = OOD.WAREHOUSE_GRP_CD																				
+	      AND SCC4.ST_COMN_CODE_MST_CD = 'WAREHOUSE_GROUP'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC5 ON																				
+	        SCC5.ST_COMN_CODE_ID = OOD.STORAGE_TYPE_CD																				
+	      AND SCC5.ST_COMN_CODE_MST_CD = 'ERP_STORAGE_TYPE'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC6 ON																				
+	        SCC6.ST_COMN_CODE_ID = OOD.GOODS_TP_CD																				
+	      AND SCC6.ST_COMN_CODE_MST_CD = 'GOODS_TYPE'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC7 ON																				
+	        SCC7.ST_COMN_CODE_ID = OOD.ORDER_STATUS_DELI_TP																				
+	      AND SCC7.ST_COMN_CODE_MST_CD = 'ORDER_STATUS_DELI_TP'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC8 ON																				
+	        SCC8.ST_COMN_CODE_ID = OOD.SALE_TP_CD																				
+	      AND SCC8.ST_COMN_CODE_MST_CD = 'SALE_TYPE'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC9 ON																				
+	        SCC9.ST_COMN_CODE_ID = OOD.GOODS_DELIVERY_TYPE																				
+	      AND SCC9.ST_COMN_CODE_MST_CD = 'GOODS_DELIVERY_TYPE'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC10 ON																				
+	        SCC10.ST_COMN_CODE_ID = OODD.GOODS_CYCLE_TP																				
+	      AND SCC10.ST_COMN_CODE_MST_CD = 'GOODS_CYCLE_TP'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC11 ON																				
+	        SCC11.ST_COMN_CODE_ID = OODD.GOODS_CYCLE_TERM_TP																				
+	      AND SCC11.ST_COMN_CODE_MST_CD = 'GOODS_CYCLE_TERM_TP'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC12 ON																				
+	        SCC12.ST_COMN_CODE_ID = OOD.GOODS_DISCOUNT_TP																				
+	      AND SCC12.ST_COMN_CODE_MST_CD = 'GOODS_DISCOUNT_TP'																				
+	    LEFT OUTER JOIN OD_STATUS OS1 ON																				
+	      OS1.STATUS_CD = OOD.ODS_STATUS_CD																				
+	    LEFT OUTER JOIN OD_STATUS OS2 ON																				
+	      OS2.STATUS_CD = OOD.OCS_STATUS_CD																				
+	    LEFT OUTER JOIN OD_STATUS OS3 ON																				
+	      OS3.STATUS_CD = OOD.ORDER_STATUS_CD																				
+	    LEFT OUTER JOIN OD_STATUS OS4 ON																				
+	      OS4.STATUS_CD = OOD.CLAIM_STATUS_CD																				
+	    LEFT OUTER JOIN OD_STATUS OS5 ON																				
+	      OS5.STATUS_CD = OOD.REFUND_STATUS_CD																				
+	    LEFT OUTER JOIN PS_CLAIM_MALL PCM ON																				
+	        PCM.PS_CLAIM_MALL_ID = OOD.PS_CLAIM_MALL_ID																				
+	      AND PCM.DEL_YN = 'N'																				
+	      AND PCM.USE_YN = 'Y'																				
+	    LEFT OUTER JOIN UR_USER UU1 ON																				
+	      UU1.UR_USER_ID = OOD.DR_ID																				
+	    LEFT OUTER JOIN UR_USER UU2 ON																				
+	      UU2.UR_USER_ID = OOD.DI_ID																				
+	    LEFT OUTER JOIN UR_USER UU3 ON																				
+	      UU3.UR_USER_ID = OOD.DC_ID																				
+	    LEFT OUTER JOIN UR_USER UU4 ON																				
+	      UU4.UR_USER_ID = OOD.BF_ID																				
+	    LEFT OUTER JOIN UR_USER UU5 ON																				
+	      UU5.UR_USER_ID = OOD.CA_ID																				
+	    LEFT OUTER JOIN UR_USER UU6 ON																				
+	      UU6.UR_USER_ID = OOD.CC_ID																				
+	    LEFT OUTER JOIN UR_USER UU7 ON																				
+	      UU7.UR_USER_ID = OOD.RA_ID																				
+	    LEFT OUTER JOIN UR_USER UU8 ON																				
+	      UU8.UR_USER_ID = OOD.RI_ID																				
+	    LEFT OUTER JOIN UR_USER UU9 ON																				
+	      UU9.UR_USER_ID = OOD.RF_ID																				
+	    LEFT OUTER JOIN UR_USER UU10 ON																				
+	      UU10.UR_USER_ID = OOD.RC_ID																				
+	    LEFT OUTER JOIN UR_USER UU11 ON																				
+	      UU11.UR_USER_ID = OOD.EC_ID																				
+	    LEFT OUTER JOIN UR_USER UU12 ON																				
+	      UU12.UR_USER_ID = OOD.CS_ID																				
+	    LEFT OUTER JOIN UR_USER UU13 ON																				
+	      UU13.UR_USER_ID = OOD.FA_ID																				
+	    LEFT OUTER JOIN UR_USER UU14 ON																				
+	      UU14.UR_USER_ID = OOD.FC_ID																				
+	    LEFT OUTER JOIN UR_USER UU15 ON																				
+	      UU15.UR_USER_ID = OOD.CR_ID																				
+	    LEFT OUTER JOIN UR_USER UU16 ON																				
+	      UU16.UR_USER_ID = OOD.CE_ID																				
+	    LEFT OUTER JOIN UR_USER UU17 ON																				
+	      UU17.UR_USER_ID = OOD.ORDER_IF_ID																				
+	    LEFT OUTER JOIN UR_USER UU18 ON																				
+	      UU18.UR_USER_ID = OOD.SHIPPING_ID																				
+	    LEFT OUTER JOIN UR_USER UU19 ON																				
+	      UU19.UR_USER_ID = OOD.DELIVERY_ID																				
+	    LEFT OUTER JOIN IF_UNRELEASED_INFO IUI2 ON																				
+	        OOD.ODID = IUI2.ODID																				
+	      AND OOD.OD_ORDER_DETL_SEQ = IUI2.OD_ORDER_DETL_SEQ																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC13 ON																				
+	        SCC13.ST_COMN_CODE_ID = IUI2.MISS_REASON																				
+	      AND SCC13.ST_COMN_CODE_MST_CD = 'MISS_STOCK_REASON'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC14 ON																				
+	        SCC14.ST_COMN_CODE_ID = OOD.AGENT_TYPE_CD																				
+	      AND SCC14.ST_COMN_CODE_MST_CD = 'AGENT_TYPE'																				
+	    LEFT OUTER JOIN ST_COMN_CODE SCC15 ON																				
+	        SCC15.ST_COMN_CODE_ID = OOD.BUYER_TYPE_CD																				
+	      AND SCC15.ST_COMN_CODE_MST_CD = 'BUYER_TYPE'																				
+	    LEFT OUTER JOIN (																				
+	    SELECT																				
+	      S2.OD_ORDER_DETL_ID,																				
+	      IFNULL(S3.TRACKING_NO, '') AS RETURN_OD_TRACKING_NUMBER_ID,																				
+	      IFNULL(PSC.SHIPPING_COMP_NM, '') AS RETURN_PS_SHIPPING_COMP_ID																				
+	    FROM																				
+	      OD_CLAIM S1																				
+	        INNER JOIN OD_CLAIM_DETL S2 ON																				
+	            S1.OD_CLAIM_ID = S2.OD_CLAIM_ID																				
+	          AND S1.CLAIM_STATUS_TP = 'CLAIM_STATUS_TP.RETURN'																				
+	        INNER JOIN OD_TRACKING_NUMBER S3 ON																				
+	          S2.OD_ORDER_DETL_ID = S3.OD_ORDER_DETL_ID																				
+	        INNER JOIN PS_SHIPPING_COMP PSC ON																				
+	          S3.PS_SHIPPING_COMP_ID = PSC.PS_SHIPPING_COMP_ID																				
+	  ) RETURN_CLAIM ON																				
+	      OOD.OD_ORDER_DETL_ID = RETURN_CLAIM.OD_ORDER_DETL_ID																				
+	    LEFT OUTER JOIN PS_SHIPPING_PATTERN PSP ON																				
+	      OOD.PS_SHIPPING_PATTERN_ID = PSP.PS_SHIPPING_PATTERN_ID																				
+	    LEFT OUTER JOIN UR_SUPPLIER US ON																				
+	      OOD.UR_SUPPLIER_ID = US.UR_SUPPLIER_ID																				
+	    LEFT OUTER JOIN UR_COMPANY UC ON																				
+	        US.UR_COMPANY_ID = UC.UR_COMPANY_ID																				
+	      AND UC.USE_YN = 'Y'																				
+	      AND UC.COMP_TP IN ('COMPANY_TYPE.HEADQUARTERS', 'COMPANY_TYPE.SUPPLIER')																				
+	    LEFT OUTER JOIN IF_SALES_SETTLE_INFO ISS ON																				
+	        OOD.ODID = ISS.ODID																				
+	      AND OOD.OD_ORDER_DETL_SEQ = ISS.OD_ORDER_DETL_SEQ																				
+	GROUP BY																				
+	  OOD.OD_ORDER_DETL_ID																				
+	ORDER BY																				
+	  OOD.OD_ORDER_ID DESC,																				
+	  OOD.OD_ORDER_DETL_SEQ ASC																				
+
+
+		"
+        # schedule => "*/20 * * * *" # 분/시/월/일/요일 Query주기 설정 
+		# schedule => "* 1 * * *" # 분/시/월/일/요일 Query주기 설정 
+    }
+}
+
+
+
+#filter {
+#
+#}
+
+output {
+    elasticsearch {
+        hosts => ["http://localhost:9200"]
+        index => "test_03"
+        document_type => "_doc"
+        document_id => "%{[od_order_id]}-%{[od_order_detl_id]}-%{[odid]}-%{[od_order_detl_seq]}"
+        doc_as_upsert => true
+        action => "update"
+    }
+    # Debug 용
+    stdout {
+        codec => rubydebug
+    }
+}
+
+
+#### sample
+#output {
+#  elasticsearch {
+#    hosts => ["http://localhost:9200"]
+#    index => "%{[@metadata][beat]}-%{[@metadata][version]}-%{+YYYY.MM.dd}"
+#    #user => "elastic"
+#    #password => "changeme"
+#  }
+#}
