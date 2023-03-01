@@ -1,0 +1,374 @@
+
+=========================================Master Node====
+# ---------------------------------- Cluster -----------------------------------
+cluster.name: hanahap-cluster
+# ------------------------------------ Node ------------------------------------
+node.name: master
+node.master: true
+node.data: false
+node.ingest: false
+node.ml: false
+# ----------------------------------- Paths ------------------------------------
+#
+# Path to directory where to store the data (separate multiple locations by comma):
+#
+#path.data: /path/to/data
+#
+# Path to log files:
+#
+#path.logs: /path/to/logs
+# ----------------------------------- Memory -----------------------------------
+#bootstrap.memory_lock: true
+#
+# ---------------------------------- Network -----------------------------------
+network.host: 0.0.0.0
+http.port: 9200
+# --------------------------------- Discovery ----------------------------------
+discovery.seed_hosts: ["0.0.0.0"]
+cluster.initial_master_nodes: ["master","master-02","master-03"]
+
+xpack.monitoring.collection.enabled : false
+
+
+=========================================DATA  Node====
+# ---------------------------------- Cluster -----------------------------------
+cluster.name: hanahap-cluster
+# ------------------------------------ Node ------------------------------------
+node.name: data-node-01
+node.master: false
+node.data: true
+node.ingest: false
+node.ml: false
+# ----------------------------------- Paths ------------------------------------
+#
+# Path to directory where to store the data (separate multiple locations by comma):
+#
+#path.data: /path/to/data
+#
+# Path to log files:
+#
+#path.logs: /path/to/logs
+# ----------------------------------- Memory -----------------------------------
+#bootstrap.memory_lock: true
+#
+# ---------------------------------- Network -----------------------------------
+network.host: 0.0.0.0
+http.port: 9201
+# --------------------------------- Discovery ----------------------------------
+discovery.seed_hosts: ["0.0.0.0"]
+cluster.initial_master_nodes: ["master","master-02","master-03"]
+
+xpack.monitoring.collection.enabled : false
+
+
+
+===========================kibana
+server.port: 5601
+server.host: "0.0.0.0"
+elasticsearch.hosts: ["http://0.0.0.0:9200"]
+elasticsearch.requestTimeout: 180000
+
+
+
+
+
+
+
+
+
+
+GET dmcpro/_search
+
+
+GET dmcpro_all_report/_search
+{
+   "query" : {
+      "match": { "tag":   "애플" }
+   },
+  "highlight": {
+    "fields": {
+      "tag": {}
+    },
+    "pre_tags": ["<em class=\"matched-term\">"],
+    "post_tags": ["</em>"]
+  }
+}
+
+
+GET dmcpro/_search
+{
+  "analyzer": "nori_korean",
+  "text": "RT_03"
+}
+
+
+GET dmcpro/_search
+{
+  "size" : "100",
+          "_source": ["rcode","typecode1","typename1","typecode2","typename2","name","tag","summary"],
+  "query": { 
+    "bool": { 
+      "must": [
+        { "match": {  "typecode2":   "RT_01"  }}
+      ],
+      "filter": [ 
+        { "match":  { "summary" : "페이스" }}
+      ]
+    }
+  }
+}
+
+
+GET dmcpro/_search
+{
+  "size" : "100",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+           "query" : {
+       "bool": { 
+      "should": [
+        { "match": { "tag" : "광고" }}
+      ],
+      "filter": [ 
+        { "match":  { "typecode1": "RT_03"}}
+      ]
+    }
+   }
+}
+
+
+GET test,dmcpro/_search
+
+GET dmcpro_all_report/_search
+
+
+GET dmcpro_premium_report/_search
+
+
+GET dmcpro_all_report,dmcpro_premium_report/_search
+{
+  "size" : "100",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+           "query" : {
+       "bool": { 
+      "should": [
+        { "match": { "tag" : "광고" }}
+      ],
+      "filter": [ 
+        { "match":  { "typecode1": "RT_03"}}
+      ]
+    }
+   }
+}
+
+
+GET dmcpro_all_report,dmcpro_premium_report/_search
+{
+  "size" : "100",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+  "query": { 
+    "bool": { 
+      "must": [
+        { "match": { "tag":   "광고"}}
+      ],
+      "filter": [ 
+        { "match":  { "typecode1": "RT_01" }},
+        { "range": { "regdate": { "gte": "2016-01-05" ,"lte":"2018-03-06"}}} 
+      ]
+    }
+  },
+  
+  "highlight": {
+    "fields": {
+      "tag": {}
+    },
+    "pre_tags": ["<b>"],
+    "post_tags": ["</b>"]
+  }
+}
+
+GET dmcpro_all_report,dmcpro_premium_report/_search
+{
+"size" : "5",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+  "query": { 
+    "bool": { 
+      "must": [
+        { "match": { "tag" : "����" }}
+      ],
+      "filter": [ 
+        { "match": { "tag" : "����" }}
+       , { "range": { "regdate": { "gte": "2019-03-02" ,"lte":"2019-04-01"}}} 
+      ]
+    }
+  },
+  
+  "highlight": {
+    "fields": {
+      "tag": {}
+    },
+    "pre_tags": ["<b>"],
+    "post_tags": ["</b>"]
+  }
+}
+
+
+
+GET dmcpro_all_report/_search
+
+GET dmcpro_all_report/_search
+{
+  "size" : "100",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+           "query": { 
+    "bool": { 
+      "filter": [ 
+        { "range": { "regdate": { "gte": "2018-01-05" ,"lte":"2018-03-06"}}} 
+      ]
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+GET dmcpro_all_report/_search
+{
+  "size" : "100",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+           "query": { 
+    "bool": { 
+      "filter": [ 
+        { "range": { "regdate": { "gte": "2016-01-05" ,"lte":"2018-03-06"}}} 
+      ]
+    }
+  }
+}
+
+
+GET dmcpro_all_report/_search
+{
+  "size" : "100",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+           "query": { 
+    "bool": { 
+      "filter": [ 
+        { "range": { "regdate": { "gte": "2018-01-05" ,"lte":"2018-03-06"}}} 
+      ]
+    }
+  }
+}
+
+
+GET dmcpro_all_report/_search
+{
+  "size" : "100",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+           "query": { "match":  { "typecode1": "RT_01" }
+   
+  }
+}
+
+
+
+
+GET dmcpro_all_report,dmcpro_premium_report/_search
+{
+  "size" : "100",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+  "query": { 
+    "bool": { 
+      "must": [
+        { "match": { "tag":   "광고"}}
+      ],
+      "filter": [ 
+        { "match":  { "typecode1": "RT_01" }},
+        { "range": { "regdate": { "gte": "2016-01-05" ,"lte":"2018-03-06"}}} 
+      ]
+    }
+  },
+  
+  "highlight": {
+    "fields": {
+      "tag": {}
+    },
+    "pre_tags": ["<b>"],
+    "post_tags": ["</b>"]
+  }
+}
+
+
+
+GET dmcpro_all_report/_search
+  {
+  "size" : "5",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+           "query": { 
+    "bool": { 
+      "filter": [ 
+        { "range": { "regdate": { "gte": "2018-10-03" ,"lte":"2019-10-03"}}} 
+      ]
+    }
+  }
+}
+
+
+GET dmcpro_all_report/report/DMCRE20180545_RT_01_RT_01_02
+
+
+
+
+
+
+
+
+
+
+GET dmcpro_all_report/_search
+{
+  "size" : "5",
+          "_source": ["name","editdate","string_by_regdate","rcode","typecode1","typename1","typecode2","typename2","tag","summary","excefilename","excelfileurl","reportthumb","fileurl"],
+           "query": { 
+    "bool": { 
+      "filter": [ 
+        { "range": { "regdate": { "gte": "2018-10-03" ,"lte":"2018-10-03"}}} 
+      ]
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+       
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
